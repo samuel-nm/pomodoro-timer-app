@@ -7,13 +7,48 @@ trigger:
 - main
 
 pool:
-  vmImage: ubuntu-latest
+  vmImage: windows-latest
 
-steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+stages:
+- stage: Build
+  displayName: 'Build stage'
+  jobs:
+  - job: Build
+    displayName: 'Build job'
+    steps:
+    - task: PublishBuildArtifacts@1
+      displayName: 'Bundle Pomodoro Files'
+      inputs:
+        targetPath: '$(System.DefaultWorkingDirectory)'
+        artifact: 'pomodoro-drop'
+        publishLocation: 'pipeline'
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+- stage: Deploy
+  displayName: 'Deploy Pomodoro App'
+  dependsOn: Build
+  jobs:
+  - deployment: VMDeploy
+    displayName: 'Deploy to VMware VM'
+    environment:
+      name: 'Windows Server'                  # Matches the Environment name you created
+      resourceType: virtualMachine     # Tells Azure to deploy to your registered VM
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          # Clean and drop files on your local Windows Server C:\ drive
+          - task: CopyFiles@2
+            displayName: 'Copy Files to Target Directory'
+            inputs:
+              SourceFolder: '$(Pipeline.Workspace)/pomodoro-drop'
+              Contents: '**'
+              TargetFolder: 'C:\Apps\Pomodoro'
+              CleanTargetFolder: true
+
+          - task: PowerShell@2
+            displayName: 'Verify Deployment'
+            inputs:
+              targetType: 'inline'
+              script: |
+                Write-Host "Pomodoro application successfully deployed to C:\Apps\Pomodoro"
+                Get-ChildItem -Path C:\Apps\Pomodoro
