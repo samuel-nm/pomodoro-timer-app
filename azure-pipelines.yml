@@ -21,7 +21,7 @@ stages:
       inputs:
         targetPath: '$(System.DefaultWorkingDirectory)'
         artifact: 'pomodoro-drop'
-        publishLocation: 'pipeline'
+        publishLocation: 'Container'
 
 - stage: Deploy
   displayName: 'Deploy Pomodoro App'
@@ -36,6 +36,9 @@ stages:
       runOnce:
         deploy:
           steps:
+          - download: current
+            artifact: 'pomodoro-drop'
+            displayName: 'Download Build Artifacts'
           # Clean and drop files on your local Windows Server C:\ drive
           - task: CopyFiles@2
             displayName: 'Copy Files to Target Directory'
@@ -51,4 +54,8 @@ stages:
               targetType: 'inline'
               script: |
                 Write-Host "Pomodoro application successfully deployed to C:\Apps\Pomodoro"
-                Get-ChildItem -Path C:\Apps\Pomodoro
+                if (Test-Path "C:\Apps\Pomodoro") {
+                    Get-ChildItem -Path C:\Apps\Pomodoro
+                } else {
+                    Write-Error "Target directory C:\Apps\Pomodoro was not created."
+                }
