@@ -16,11 +16,20 @@ stages:
   - job: Build
     displayName: 'Build job'
     steps:
+    - powershell: |
+        Write-Host "===== BUILD WORKSPACE ====="
+        Write-Host "$(System.DefaultWorkingDirectory)"
+
+        Write-Host "`n===== FILES ====="
+        Get-ChildItem "$(System.DefaultWorkingDirectory)" -Recurse |
+          Select-Object FullName
+      displayName: 'Inspect Source Files'
+      
     - task: PublishBuildArtifacts@1
       displayName: 'Bundle Pomodoro Files'
       inputs:
-        targetPath: '$(System.DefaultWorkingDirectory)'
-        artifact: 'pomodoro-drop'
+        PathtoPublish: '$(System.DefaultWorkingDirectory)'
+        ArtifactName: 'pomodoro-drop'
         publishLocation: 'Container'
 
 - stage: Deploy
