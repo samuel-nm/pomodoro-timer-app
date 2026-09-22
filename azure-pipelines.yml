@@ -39,6 +39,22 @@ stages:
           - download: current
             artifact: 'pomodoro-drop'
             displayName: 'Download Build Artifacts'
+          - powershell: |
+              Write-Host "===== DEPLOYMENT MACHINE ====="
+              Write-Host "Computer: $env:COMPUTERNAME"
+              Write-Host "User: $env:USERNAME"
+              Write-Host "Current directory: $(Get-Location)"
+
+              Write-Host "`n===== ARTIFACT ====="
+              Get-ChildItem "$(Pipeline.Workspace)\pomodoro-drop" -Recurse
+
+              Write-Host "`n===== TARGET ====="
+              if (Test-Path "C:\Apps\Pomodoro") {
+                  Write-Host "C:\Apps\Pomodoro exists"
+              } else {
+                  Write-Host "C:\Apps\Pomodoro does NOT exist"
+              }
+            displayName: 'Diagnose Deployment VM'
           # Clean and drop files on your local Windows Server C:\ drive
           - task: CopyFiles@2
             displayName: 'Copy Files to Target Directory'
