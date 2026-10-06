@@ -6,7 +6,7 @@ pool:
 
 steps:
   - script: |
-      python3 -m pip install --upgrade pip 
+      python3 -m pip install --upgrade pip
       pip install pyinstaller
       if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     displayName: 'Install PyInstaller and Project Dependencies'
@@ -15,9 +15,9 @@ steps:
       pyinstaller --onefile --windowed --name PomodoroTimer app.py
     displayName: 'Build App with PyInstaller'
 
-  - task:
+  - task: PublishPipelineArtifact@1
+    displayName: 'Publish Compiled Binary'
     inputs:
       targetPath: '$(System.DefaultWorkingDirectory)/dist'
       artifact: 'PomodoroTimer-App'
       publishLocation: 'pipeline'
-    displayName: 'Publish Compiled Binary'
