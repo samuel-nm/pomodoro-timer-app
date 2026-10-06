@@ -1,86 +1,23 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
-
 trigger:
-- main
+  - main
 
 pool:
-  vmImage: windows-latest
+  name: 'Default'
 
-stages:
-- stage: Build
-  displayName: 'Build stage'
-  jobs:
-  - job: Build
-    displayName: 'Build job'
-    steps:
-    - powershell: |
-        Write-Host "===== BUILD WORKSPACE ====="
-        Write-Host "$(System.DefaultWorkingDirectory)"
+steps:
+  - script: |
+      python3 -m pip install --upgrade pip 
+      pip install pyinstaller
+      if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    displayName: 'Install PyInstaller and Project Dependencies'
 
-        Write-Host "`n===== FILES ====="
-        Get-ChildItem "$(System.DefaultWorkingDirectory)" -Recurse |
-          Select-Object FullName
-      displayName: 'Inspect Source Files'
-      
-    - task: PublishBuildArtifacts@1
-      displayName: 'Bundle Pomodoro Files'
-      inputs:
-        PathtoPublish: '$(System.DefaultWorkingDirectory)'
-        ArtifactName: 'pomodoro-drop'
-        publishLocation: 'Container'
+  - script: |
+      pyinstaller --onefile --windowed --name PomodoroTimer app.py
+    displayName: 'Build App with PyInstaller'
 
-- stage: Deploy
-  displayName: 'Deploy Pomodoro App'
-  dependsOn: Build
-  jobs:
-  - deployment: VMDeploy
-    displayName: 'Deploy to VMware VM'
-    environment:
-      name: 'Windows Server'                  # Matches the Environment name you created
-      resourceType: virtualMachine     # Tells Azure to deploy to your registered VM
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - download: current
-            artifact: 'pomodoro-drop'
-            displayName: 'Download Build Artifacts'
-          - powershell: |
-              Write-Host "===== DEPLOYMENT MACHINE ====="
-              Write-Host "Computer: $env:COMPUTERNAME"
-              Write-Host "User: $env:USERNAME"
-              Write-Host "Current directory: $(Get-Location)"
-
-              Write-Host "`n===== ARTIFACT ====="
-              Get-ChildItem "$(Pipeline.Workspace)\pomodoro-drop" -Recurse
-
-              Write-Host "`n===== TARGET ====="
-              if (Test-Path "C:\Apps\Pomodoro") {
-                  Write-Host "C:\Apps\Pomodoro exists"
-              } else {
-                  Write-Host "C:\Apps\Pomodoro does NOT exist"
-              }
-            displayName: 'Diagnose Deployment VM'
-          # Clean and drop files on your local Windows Server C:\ drive
-          - task: CopyFiles@2
-            displayName: 'Copy Files to Target Directory'
-            inputs:
-              SourceFolder: '$(Pipeline.Workspace)/pomodoro-drop'
-              Contents: '**'
-              TargetFolder: 'C:\Apps\Pomodoro'
-              CleanTargetFolder: true
-
-          - task: PowerShell@2
-            displayName: 'Verify Deployment'
-            inputs:
-              targetType: 'inline'
-              script: |
-                Write-Host "Pomodoro application successfully deployed to C:\Apps\Pomodoro"
-                if (Test-Path "C:\Apps\Pomodoro") {
-                    Get-ChildItem -Path C:\Apps\Pomodoro
-                } else {
-                    Write-Error "Target directory C:\Apps\Pomodoro was not created."
-                }
+  - task:
+    inputs:
+      targetPath: '$(System.DefaultWorkingDirectory)/dist'
+      artifact: 'PomodoroTimer-App'
+      publishLocation: 'pipeline'
+    displayName: 'Publish Compiled Binary'
