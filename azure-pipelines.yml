@@ -7,17 +7,24 @@ pool:
 steps:
   - script: |
       python3 -m pip install --upgrade pip
-      pip install pyinstaller
-      if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-    displayName: 'Install PyInstaller and Project Dependencies'
+      pip install -r requirements.txt
+    displayName: 'Install Dependencies'
 
   - script: |
-      pyinstaller --onefile --windowed --name PomodoroTimer app.py
-    displayName: 'Build App with PyInstaller'
+      pytest
+    displayName: 'Run Unit Tests'
+
+  - task: ArchiveFiles@2
+    displayName: 'Package API Server'
+    inputs:
+      rootFolderOrFile: '$(System.DefaultWorkingDirectory)'
+      includeRootFolder: false
+      archiveType: 'zip'
+      archiveFile: '$(Build.ArtifactStagingDirectory)/pomodoro-api.zip'
 
   - task: PublishPipelineArtifact@1
-    displayName: 'Publish Compiled Binary'
+    displayName: 'Publish Build Artifact'
     inputs:
-      targetPath: '$(System.DefaultWorkingDirectory)/dist'
-      artifact: 'PomodoroTimer-App'
+      targetPath: '$(Build.ArtifactStagingDirectory)/pomodoro-api.zip'
+      artifact: 'PomodoroApi'
       publishLocation: 'pipeline'
