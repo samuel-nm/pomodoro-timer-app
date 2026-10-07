@@ -22,10 +22,6 @@ steps:
       python3 -m pytest
     displayName: "Run Unit Tests"
 
-  - script: |
-      apk add --no-cache zip
-    displayName: "Install System Zip Utility"
-
   - task: ArchiveFiles@2
     displayName: "Package API Server"
     inputs:
