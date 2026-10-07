@@ -2,37 +2,37 @@ trigger:
   - main
 
 pool:
-  name: 'Default'
+  name: "Default"
 
 steps:
-- - script: |
+  - script: |
       echo "System.DefaultWorkingDirectory path is:"
       echo "$(System.DefaultWorkingDirectory)"
       echo "-------------------------------------"
       echo "Files located inside this folder:"
       ls -la $(System.DefaultWorkingDirectory)
-    displayName: 'Debug Working Directory'
+    displayName: "Debug Working Directory"
 
   - script: |
       python3 -m pip install --upgrade pip
       pip install -r requirements.txt
-    displayName: 'Install Dependencies'
+    displayName: "Install Dependencies"
 
   - script: |
       pytest
-    displayName: 'Run Unit Tests'
+    displayName: "Run Unit Tests"
 
   - task: ArchiveFiles@2
-    displayName: 'Package API Server'
+    displayName: "Package API Server"
     inputs:
-      rootFolderOrFile: '$(System.DefaultWorkingDirectory)'
+      rootFolderOrFile: "$(System.DefaultWorkingDirectory)"
       includeRootFolder: false
-      archiveType: 'zip'
-      archiveFile: '$(Build.ArtifactStagingDirectory)/pomodoro-api.zip'
+      archiveType: "zip"
+      archiveFile: "$(Build.ArtifactStagingDirectory)/pomodoro-api.zip"
 
   - task: PublishPipelineArtifact@1
-    displayName: 'Publish Build Artifact'
+    displayName: "Publish Build Artifact"
     inputs:
-      targetPath: '$(Build.ArtifactStagingDirectory)/pomodoro-api.zip'
-      artifact: 'PomodoroApi'
-      publishLocation: 'pipeline'
+      targetPath: "$(Build.ArtifactStagingDirectory)/pomodoro-api.zip"
+      artifact: "PomodoroApi"
+      publishLocation: "pipeline"
