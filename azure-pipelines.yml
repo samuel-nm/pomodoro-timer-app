@@ -5,6 +5,14 @@ pool:
   name: 'Default'
 
 steps:
+- - script: |
+      echo "System.DefaultWorkingDirectory path is:"
+      echo "$(System.DefaultWorkingDirectory)"
+      echo "-------------------------------------"
+      echo "Files located inside this folder:"
+      ls -la $(System.DefaultWorkingDirectory)
+    displayName: 'Debug Working Directory'
+
   - script: |
       python3 -m pip install --upgrade pip
       pip install -r requirements.txt
