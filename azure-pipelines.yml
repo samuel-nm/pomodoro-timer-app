@@ -19,7 +19,7 @@ steps:
     displayName: "Install Dependencies"
 
   - script: |
-      pytest
+      python3 -m pytest
     displayName: "Run Unit Tests"
 
   - task: ArchiveFiles@2
