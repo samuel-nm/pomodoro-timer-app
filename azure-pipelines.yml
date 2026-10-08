@@ -4,35 +4,94 @@ trigger:
 pool:
   name: "Default"
 
-steps:
-  - script: |
-      echo "System.DefaultWorkingDirectory path is:"
-      echo "$(System.DefaultWorkingDirectory)"
-      echo "-------------------------------------"
-      echo "Files located inside this folder:"
-      ls -la $(System.DefaultWorkingDirectory)
-    displayName: "Debug Working Directory"
+stages:
+  - stage: Build
+    displayName: "Build & Package (CI)"
+    jobs:
+      - job: BuildJob
+        steps:
+          - script: |
+              python3 -m pip install --upgrade pip --break-system-packages
+              python3 -m pip install -r requirements.txt --break-system-packages
+            displayName: "Install Dependencies"
 
-  - script: |
-      python3 -m pip install --upgrade pip
-      pip install -r requirements.txt
-    displayName: "Install Dependencies"
+          - script: |
+              python3 -m pytest
+            displayName: "Run Unit Tests"
 
-  - script: |
-      python3 -m pytest
-    displayName: "Run Unit Tests"
+          - task: ArchiveFiles@2
+            displayName: "Package API Server"
+            inputs:
+              rootFolderOrFile: "$(System.DefaultWorkingDirectory)"
+              includeRootFolder: false
+              archiveType: "zip"
+              archiveFile: "$(Build.ArtifactStagingDirectory)/pomodoro-api.zip"
 
-  - task: ArchiveFiles@2
-    displayName: "Package API Server"
-    inputs:
-      rootFolderOrFile: "$(System.DefaultWorkingDirectory)"
-      includeRootFolder: false
-      archiveType: "zip"
-      archiveFile: "$(Build.ArtifactStagingDirectory)/pomodoro-api.zip"
+          - task: PublishPipelineArtifact@1
+            displayName: "Publish Build Artifact"
+            inputs:
+              targetPath: "$(Build.ArtifactStagingDirectory)/pomodoro-api.zip"
+              artifact: "PomodoroApi"
+              publishLocation: "pipeline"
 
-  - task: PublishPipelineArtifact@1
-    displayName: "Publish Build Artifact"
-    inputs:
-      targetPath: "$(Build.ArtifactStagingDirectory)/pomodoro-api.zip"
-      artifact: "PomodoroApi"
-      publishLocation: "pipeline"
+  - stage: Deploy
+    displayName: "Deploy to WSL Host via SSH"
+    dependsOn: Build
+    jobs:
+      - job: DeployJob
+        steps:
+          - task: DownloadPipelineArtifact@2
+            displayName: "Download Artifact"
+            inputs:
+              buildType: "current"
+              artifactName: "PomodoroApi"
+              targetPath: "$(Pipeline.Workspace)/extracted"
+
+          - script: |
+              mkdir -p ~/.ssh
+              echo "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+              chmod 600 ~/.ssh/deploy_key
+              ssh-keyscan -H host.docker.internal >> ~/.ssh/known_hosts 2>/dev/null || true
+            displayName: "Configure SSH Key & Known Hosts"
+            env:
+              SSH_PRIVATE_KEY: $(SSH_PRIVATE_KEY)
+
+          - script: |
+              echo "=== Copying Package to WSL Host ==="
+              scp -i ~/.ssh/deploy_key $(Pipeline.Workspace)/extracted/pomodoro-api.zip samuelnigus@host.docker.internal:/tmp/pomodoro-api.zip
+
+              echo "=== Executing Deployment Commands on WSL Host ==="
+              ssh -i ~/.ssh/deploy_key samuelnigus@host.docker.internal << 'EOF'
+                set -e
+                DEPLOY_DIR=$HOME/deployments/pomodoro-api
+                mkdir -p $DEPLOY_DIR
+                
+                # Extract archive
+                unzip -o /tmp/pomodoro-api.zip -d $DEPLOY_DIR
+                rm /tmp/pomodoro-api.zip
+                
+                # Configure Python Venv on Host
+                python3 -m venv $DEPLOY_DIR/venv
+                source $DEPLOY_DIR/venv/bin/activate
+                pip install --upgrade pip
+                pip install -r $DEPLOY_DIR/requirements.txt
+                
+                # Stop Existing Instance on Port 8000
+                PID=$(netstat -tlpn 2>/dev/null | grep ":8000 " | awk '{print $7}' | cut -d'/' -f1)
+                if [ -n "$PID" ]; then
+                  echo "Stopping existing process PID: $PID"
+                  kill -9 $PID || true
+                fi
+                
+                # Start Uvicorn in Background on Host
+                cd $DEPLOY_DIR
+                nohup python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 > app.log 2>&1 &
+                sleep 3
+              EOF
+            displayName: "Deploy and Launch on Host via SSH"
+
+          - script: |
+              echo "=== Running Remote Health Check ==="
+              curl --fail --retry 5 http://host.docker.internal:8000/ || exit 1
+              echo "API successfully deployed and verified on WSL Host!"
+            displayName: "Verify Host Endpoint"

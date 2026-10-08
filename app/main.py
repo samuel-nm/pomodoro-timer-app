@@ -1,5 +1,5 @@
+from config import STAGES
 from fastapi import FastAPI, HTTPException
-from app.config import STAGES
 
 app = FastAPI(title="Pomodoro Timer API", version="1.0.0")
 
