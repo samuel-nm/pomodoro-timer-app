@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  github-runner:
+    image: myoung34/github-runner:latest
+    container_name: github-runner-1
+    restart: always
+    environment:
+      # Target Repository URL (or ORG_NAME for organization level)
+      - REPO_URL=https://github.com/samuel-nm/pomodoro-timer-app
+      # Short-lived token generated from GitHub UI
+      - RUNNER_TOKEN=<your-runner-token>
+      # Optional metadata
+      - RUNNER_NAME=docker-runner-01
+      - RUNNER_LABELS=self-hosted,linux,docker,custom-runner
+      - RUNNER_WORKDIR=/_work
+    volumes:
+      # Mount host Docker socket if your jobs need to run Docker commands / build containers
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Persist workspace files between job steps
+      - runner-work:/_work
+
+volumes:
+  runner-work:
