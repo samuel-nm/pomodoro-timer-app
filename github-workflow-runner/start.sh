@@ -3,18 +3,16 @@
 REPO=$REPO
 ACCESS_TOKEN=$TOKEN
 
-REG_TOKEN=$(curl -X POST -H "Authorization: token ${ACCESS_TOKEN}" -H "Accept: application/vnd.github+json" https://api.github.com/repos/${REPO}/actions/runners/registration-token | jq .token --raw-output)
-
 cd /home/docker/actions-runner
 
-./config.sh --url https://github.com/${REPO} --token ${REG_TOKEN}
+# 1. Always wipe stale state on boot
+rm -f .runner .credentials .credentials_rsaparams
 
-cleanup() {
-    echo "Removing runner..."
-    ./config.sh remove --unattended --token ${REG_TOKEN}
-}
+echo "Configuring new ephemeral runner..."
+REG_TOKEN=$(curl -sX POST -H "Authorization: token ${ACCESS_TOKEN}" -H "Accept: application/vnd.github+json" https://api.github.com/repos/${REPO}/actions/runners/registration-token | jq .token --raw-output)
 
-trap 'cleanup; exit 130' INT
-trap 'cleanup; exit 143' TERM
+# 2. Add --ephemeral and --replace flags
+./config.sh --url https://github.com/${REPO} --token ${REG_TOKEN} --unattended --ephemeral --replace
 
-./run.sh & wait $!
+# 3. Start the runner
+./run.sh
